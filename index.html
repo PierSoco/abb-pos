@@ -168,7 +168,7 @@
         </div>
         <div class="legend-row">
           <span class="legend legend-cyan fragment fade-right" data-fragment-index="1">Índice principal — clave: código de barras (escáner)</span>
-          <span class="legend legend-slate fragment" data-fragment-index="3">Nodo = clave + referencia (8 B) · los datos pesados viven una sola vez</span>
+          <span class="legend legend-slate fragment" data-fragment-index="3">Nodo = clave + referencia · los datos pesados viven una sola vez</span>
           <span class="legend legend-emerald fragment fade-left" data-fragment-index="2">Índice secundario — clave: nombre (plan B sin lector)</span>
         </div>
       </div>
@@ -213,7 +213,7 @@
               </div>
             </div>
             <div class="inter-col inter-col--log">
-              <span class="sim-label" id="inter-state">Traza · pausado</span>
+              <span class="sim-label" id="inter-state">Pasos · pausado</span>
               <ol class="sim-loglines" id="inter-log"></ol>
             </div>
             <div class="inter-col inter-col--out">
@@ -232,116 +232,112 @@
     <section class="s">
       <div class="frame">
         <header class="head head-tight rise" style="--d:0">
-          <p class="eyebrow">Implementación</p>
-          <h2>El índice en <span class="grad">tres piezas</span>: nodo, referencia, comparación</h2>
+          <p class="eyebrow">Código del simulador</p>
+          <h2>El índice en <span class="grad">tres piezas</span>: datos, clave, comparación</h2>
         </header>
         <div class="code-grid">
           <div class="code-card rise" style="--d:1">
-            <div class="code-head mono"><i class="dot dot-cyan"></i><span>ArbolBinarioBusquedaCatalogo.java</span><span class="code-note" id="codePage">1 / 4</span></div>
+            <div class="code-head mono"><i class="dot dot-cyan"></i><span>app.js · motor del laboratorio</span><span class="code-note" id="codePage">1 / 4</span></div>
             <div class="code-viewport" id="codeViewport">
-              <div class="code-page active" data-label="Modelo · Producto">
-<pre><code class="language-java">static class Producto {
-    int codigo;
-    String nombre;
-    int precio;
-    int stock;
+              <div class="code-page active" data-label="Datos del simulador">
+<pre><code class="language-javascript">var CATALOGO = {
+  '7790500': { nombre: 'Leche',     precio: 1850, stock: 40 },
+  '7790100': { nombre: 'Arroz',     precio: 1200, stock: 18 },
+  '7790300': { nombre: 'Coca-Cola', precio: 1500, stock: 30 },
+  '7790800': { nombre: 'Yerba',     precio: 2400, stock: 12 },
+  '7790700': { nombre: 'Pan',       precio: 700,  stock: 50 },
+  '7790040': { nombre: 'Alfajor',   precio: 900,  stock: 25 },
+  '7790900': { nombre: 'Zanahoria', precio: 650,  stock: 22 }
+};
 
-    Producto(int codigo, String nombre, int precio, int stock) {
-        this.codigo = codigo;
-        this.nombre = nombre;
-        this.precio = precio;
-        this.stock = stock;
-    }
-
-    String descripcion() {
-        return codigo + " | " + nombre + " | $" + precio + " | stock " + stock;
-    }
-}</code></pre>
+var NODOS = [
+  { id: 'root', codigo: '7790500', izq: 'l',    der: 'r'   },
+  { id: 'l',    codigo: '7790100', izq: 'll',   der: 'lr'  },
+  { id: 'r',    codigo: '7790800', izq: 'rl',   der: 'rr'  },
+  { id: 'll',   codigo: '7790040' },
+  { id: 'lr',   codigo: '7790300' },
+  { id: 'rl',   codigo: '7790700' },
+  { id: 'rr',   codigo: '7790900' }
+];</code></pre>
               </div>
-              <div class="code-page" data-label="Modelo · Nodo y Traza">
-<pre><code class="language-java">static class Nodo {
-    Producto producto;
-    Nodo izquierdo;
-    Nodo derecho;
-
-    Nodo(Producto producto) {
-        this.producto = producto;
-        this.izquierdo = null;
-        this.derecho = null;
-    }
+              <div class="code-page" data-label="Clave y prefijo">
+<pre><code class="language-javascript">function claveDe(nodo, modo) {
+  return modo === 'num'
+    ? nodo.codigo
+    : CATALOGO[nodo.codigo].nombre.toLowerCase();
 }
 
-static class Traza {
-    int comparaciones;
-    String ultimoNodo;
-
-    Traza() {
-        this.comparaciones = 0;
-        this.ultimoNodo = "(vacío)";
-    }
+function comparar(objetivo, clave, modo) {
+  var a = modo === 'num' ? String(objetivo) : String(objetivo).toLowerCase();
+  var b = modo === 'num' ? String(clave) : String(clave).toLowerCase();
+  if (b.indexOf(a) === 0) return 0;
+  if (a &lt; b) return -1;
+  if (a &gt; b) return 1;
+  return 0;
 }</code></pre>
               </div>
-              <div class="code-page" data-label="Búsqueda por código">
-<pre><code class="language-java">public static Producto buscarPorCodigo(Nodo nodo, int codigo, Traza traza) {
-    if (nodo == null) {
-        return null;
+              <div class="code-page" data-label="Plan de búsqueda">
+<pre><code class="language-javascript">function planificarBusqueda(modo, valor) {
+  var pasos = [];
+  var actual = 'root';
+  var objetivo = modo === 'num' ? valor : valor.toLowerCase();
+  while (actual) {
+    var nodo = NODO_POR_ID[actual];
+    var clave = claveDe(nodo, modo);
+    var cmp = comparar(objetivo, clave, modo);
+    var siguiente = cmp &lt; 0 ? nodo.izq : (cmp &gt; 0 ? nodo.der : null);
+    var lado = cmp === 0 ? 'hallado'
+      : (siguiente ? (cmp &lt; 0 ? 'izquierda' : 'derecha') : 'sin coincidencia');
+    pasos.push({
+      id: nodo.id, clave: clave, cmp: cmp,
+      prefijo: cmp === 0 &amp;&amp; clave.toLowerCase() !== objetivo,
+      siguiente: siguiente, lado: lado
+    });
+    if (cmp === 0) {
+      return { modo: modo, valor: valor, pasos: pasos, ok: true, codigo: nodo.codigo };
     }
-
-    traza.comparaciones++;
-    traza.ultimoNodo = nodo.producto.nombre + " (" + nodo.producto.codigo + ")";
-
-    if (codigo == nodo.producto.codigo) {
-        return nodo.producto;
-    }
-
-    if (codigo < nodo.producto.codigo) {
-        return buscarPorCodigo(nodo.izquierdo, codigo, traza);
-    }
-
-    return buscarPorCodigo(nodo.derecho, codigo, traza);
+    actual = siguiente;
+  }
+  return { modo: modo, valor: valor, pasos: pasos, ok: false, codigo: null };
 }</code></pre>
               </div>
-              <div class="code-page" data-label="Búsqueda por nombre">
-<pre><code class="language-java">public static Producto buscarPorNombre(Nodo nodo, String nombre, Traza traza) {
-    if (nodo == null) {
-        return null;
-    }
+              <div class="code-page" data-label="Paso a paso">
+<pre><code class="language-javascript">function prepararBusqueda(valor) {
+  var cant = caracteresValidos(valor);
+  if (cant &lt; 3) { marcarError(mensajeCorto(cant)); return; }
+  var modo = /^\d+$/.test(valor) ? 'num' : 'nom';
+  planActual = planificarBusqueda(modo, valor);
+  pasoActual = 0;
+  pintarPaso(0);
+  setEstado('pausado · paso 1 de ' + planActual.pasos.length);
+}
 
-    traza.comparaciones++;
-    traza.ultimoNodo = nodo.producto.nombre;
-
-    int cmp = nombre.compareToIgnoreCase(nodo.producto.nombre);
-
-    if (cmp == 0) {
-        return nodo.producto;
-    }
-
-    if (cmp < 0) {
-        return buscarPorNombre(nodo.izquierdo, nombre, traza);
-    }
-
-    return buscarPorNombre(nodo.derecho, nombre, traza);
+function avanzar() {
+  if (!planActual || pasoActual &gt;= planActual.pasos.length - 1) return;
+  pasoActual += 1;
+  pintarPaso(pasoActual);
+  setEstado('paso ' + (pasoActual + 1) + ' · de ' + planActual.pasos.length);
 }</code></pre>
               </div>
             </div>
             <div class="code-pager mono">
               <button type="button" class="page-btn" id="codePrev" disabled>← Anterior</button>
-              <span class="page-label" id="codeLabel">Modelo · Producto</span>
+              <span class="page-label" id="codeLabel">Datos del simulador</span>
               <button type="button" class="page-btn primary" id="codeNext">Siguiente →</button>
             </div>
           </div>
           <aside class="code-notes">
             <article class="side-card fragment fade-up">
               <span class="side-k mono">Complejidad</span>
-              <p>Una comparación por nivel: <b class="mono">O(log n)</b>. Con 1.000.000 de productos, el peor caso son <b class="mono">20 saltos</b>.</p>
+              <p>Una comparación por nivel del ABB: <b class="mono">O(log n)</b>. Con 1.000.000 de productos, unos <b class="mono">20 saltos</b>.</p>
             </article>
             <article class="side-card fragment fade-up">
               <span class="side-k mono">Memoria</span>
-              <p>El nodo guarda <b class="mono">producto + 2 referencias</b>. El objeto <span class="mono">Producto</span> vive <b>una sola vez</b> y lo comparten ambos árboles.</p>
+              <p><span class="mono">NODOS</span> guarda dos referencias <b class="mono">izq / der</b>; <span class="mono">CATALOGO</span> guarda cada producto <b>una sola vez</b>. Ambos índices apuntan al mismo objeto.</p>
             </article>
             <article class="side-card fragment fade-up">
               <span class="side-k mono">Doble índice</span>
-              <p>Otro árbol con la misma clase, cambiando la clave por <span class="mono">nombre.compareToIgnoreCase(...)</span>.</p>
+              <p>La misma forma de árbol cambia la clave con <span class="mono">claveDe(nodo, modo)</span>. El plan guarda un array <span class="mono">pasos</span>: cada toque de «paso →» muestra una comparación.</p>
             </article>
           </aside>
         </div>

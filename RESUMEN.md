@@ -62,17 +62,16 @@ presentación sí funciona).
 
 ---
 
-## Código Java
+## Código del simulador
 
-`ArbolBinarioBusquedaCatalogo.java` se muestra en 4 partes:
+`app.js`, el motor del laboratorio, se muestra en 4 partes:
 
-1. `Producto`
-2. `Nodo` y `Traza`
-3. `buscarPorCodigo`
-4. `buscarPorNombre`
+1. Datos: `CATALOGO` y `NODOS`.
+2. Clave y prefijo: `claveDe` + `comparar`.
+3. Plan de búsqueda: `planificarBusqueda` devuelve `pasos`.
+4. Paso a paso: pausa en el paso 1 y avance manual.
 
-Sin comentarios, con resaltado de sintaxis. El archivo original está en el
-material de AyED3, fuera de este repo.
+Sin comentarios. «Traza» significa simplemente la lista `pasos` de comparaciones.
 
 ---
 

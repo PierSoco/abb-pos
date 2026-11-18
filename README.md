@@ -61,7 +61,7 @@ Las 6 diapositivas son:
 2. El problema: búsquedas lentas en caja.
 3. Un catálogo, dos índices, cero duplicación.
 4. **Laboratorio interactivo** (búsqueda manual en ambos ABB).
-5. Implementación en Java, en un visor paginado de 4 partes.
+5. Código del simulador, en un visor paginado de 4 partes.
 6. Riesgo y cierre: la importancia de mantener el árbol balanceado.
 
 ---
@@ -85,7 +85,7 @@ los dos árboles, siempre visibles. La entrada es `fade` lento.
 - Los nodos verificados y descartados se marcan en **ámbar** (`›`). El rojo se
   reserva al resultado final `✕ no está en el catálogo`, sin marcar el último
   nodo comparado.
-- `clear` reinicia la traza. Todo respeta `prefers-reduced-motion`.
+- `clear` reinicia el recorrido. Todo respeta `prefers-reduced-motion`.
 
 ### Catálogo de ejemplo
 
@@ -129,19 +129,20 @@ mismo color que en reposo.
 
 ---
 
-## Implementación en Java
+## Código del simulador
 
-La slide 5 muestra un único viewport con el código de
-`ArbolBinarioBusquedaCatalogo.java` partido en 4 partes navegables:
+La slide 5 muestra el código real que mueve el laboratorio (`app.js`), en un
+único viewport partido en 4 partes navegables:
 
-1. `Producto`: campos, constructor y `descripcion()`.
-2. `Nodo` y `Traza`: referencias y contador de comparaciones.
-3. `buscarPorCodigo`: comparación numérica.
-4. `buscarPorNombre`: comparación con `compareToIgnoreCase`.
+1. `Datos del simulador`: `CATALOGO` y la forma compartida de los dos ABB en `NODOS`.
+2. `Clave y prefijo`: `claveDe(nodo, modo)` elige la clave y `comparar` detecta prefijos.
+3. `Plan de búsqueda`: `planificarBusqueda` devuelve un array `pasos` con cada comparación.
+4. `Paso a paso`: `prepararBusqueda` pausa en el paso 1 y `avanzar` muestra una comparación por toque.
 
-El código se muestra sin comentarios y con resaltado de sintaxis. La
-implementación equivalente usada como referencia vive en el material de la
-cátedra, en `../ayed3/02-ejemplosJava/13-Arboles/ArbolBinarioBusquedaCatalogo.java`
+No hay una «traza» opaca: `pasos` es la lista que recorre el botón «paso →».
+El código está sin comentarios y con resaltado de sintaxis. La implementación
+Java equivalente del material de la cátedra queda como referencia externa en
+`../ayed3/02-ejemplosJava/13-Arboles/ArbolBinarioBusquedaCatalogo.java`
 (fuera de este repo).
 
 ---

@@ -620,7 +620,7 @@
 
   function setEstado(texto) {
     var el = document.getElementById('inter-state');
-    if (el) el.textContent = 'Traza · ' + texto;
+    if (el) el.textContent = 'Pasos · ' + texto;
   }
 
   /* Cuenta solo dígitos y letras: espacios o guiones no suman. */
@@ -694,7 +694,7 @@
     syncLab();
   }
 
-  /* Retroceder: limpia la traza y vuelve a dibujar hasta el paso anterior. */
+  /* Retroceder: limpia el recorrido y vuelve a dibujar hasta el paso anterior. */
   function retroceder() {
     if (!planActual || pasoActual <= 0) return;
     pasoActual -= 1;
