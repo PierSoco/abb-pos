@@ -1,0 +1,4 @@
+node_modules/
+quick.cjs
+.DS_Store
+Thumbs.db

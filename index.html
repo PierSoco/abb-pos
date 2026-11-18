@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="Optimización de búsquedas en sistemas POS mediante Árboles Binarios de Búsqueda — arquitectura de doble índice en memoria.">
+<title>ABB × POS — Doble índice en memoria</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<div class="backdrop" aria-hidden="true"></div>
+<div class="brand mono" aria-hidden="true">ABB × POS <span>·</span> doble índice en memoria</div>
+<div class="hint mono" aria-hidden="true">←&nbsp;→ navegar · Esc: resumen</div>
+
+<!-- QR MODAL — del repo Reveal-Remote (PierSoco) -->
+<script>
+(function () {
+  var style = document.createElement('style');
+  style.textContent = [
+    '#qr-trigger{position:fixed;top:0;left:50%;transform:translateX(-50%);width:140px;height:22px;z-index:10000;cursor:pointer;display:flex;align-items:flex-start;justify-content:center}',
+    '#qr-trigger::after{content:"";width:36px;height:3px;background:rgba(255,255,255,0.12);border-radius:100px;margin-top:5px;transition:background .3s,width .3s}',
+    '#qr-trigger:hover::after{background:rgba(56,189,248,0.8);width:48px}',
+    '#qr-overlay{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .3s ease}',
+    '#qr-overlay.visible{opacity:1;pointer-events:auto}',
+    '#qr-modal{position:fixed;left:50%;top:50%;z-index:9999;transform:translate(-50%,-50%) scale(.9);background:#0a0a0d;border:1px solid rgba(255,255,255,.08);border-radius:28px;padding:24px 32px 20px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.6),0 0 0 1px rgba(59,130,246,.08);opacity:0;pointer-events:none;transition:opacity .3s ease,transform .35s cubic-bezier(.22,1,.36,1);min-width:300px}',
+    '#qr-modal.visible{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}',
+    '#qr-modal .qr-head{font-size:17px;font-weight:700;color:rgba(255,255,255,.92);letter-spacing:-.3px;margin-bottom:2px}',
+    '#qr-modal .qr-sub{font-size:13px;color:rgba(255,255,255,.42);margin-bottom:20px;font-weight:400}',
+    '#qr-modal .qr-img-wrap{background:#fff;border-radius:18px;padding:14px;display:inline-block;border:1px solid rgba(255,255,255,.05)}',
+    '#qr-modal img{width:180px;height:180px;display:block;margin:0 auto}',
+    '#qr-modal .qr-url{font-family:"JetBrains Mono",monospace;font-size:11px;color:#3b82f6;margin-top:14px;word-break:break-all;background:#111115;padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.05)}',
+    '#qr-modal .qr-actions{margin-top:18px;display:flex;align-items:center;justify-content:center;gap:10px}',
+    '#qr-modal .qr-close{background:#111115;border:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.42);padding:7px 22px;border-radius:100px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .2s,color .2s;outline:none}',
+    '#qr-modal .qr-close:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.92)}'
+  ].join('');
+  document.head.appendChild(style);
+
+  var trigger = document.createElement('div');
+  trigger.id = 'qr-trigger';
+  trigger.title = 'Mostrar QR del control remoto';
+  document.body.appendChild(trigger);
+
+  var overlay = document.createElement('div');
+  overlay.id = 'qr-overlay';
+  document.body.appendChild(overlay);
+
+  var modal = document.createElement('div');
+  modal.id = 'qr-modal';
+  modal.innerHTML = '<div class="qr-head">Control remoto</div><div class="qr-sub">Escaneá con tu celular para controlar la presentación</div><div class="qr-img-wrap" id="qr-image"></div><div class="qr-url" id="qr-url">Conectando...</div><div class="qr-actions"><button class="qr-close" id="qr-close">Cerrar</button></div>';
+  document.body.appendChild(modal);
+
+  var image = document.getElementById('qr-image');
+  var urlEl = document.getElementById('qr-url');
+
+  function show() { overlay.classList.add('visible'); modal.classList.add('visible'); setup(); }
+  function hide() { overlay.classList.remove('visible'); modal.classList.remove('visible'); }
+
+  trigger.addEventListener('mouseenter', show);
+  overlay.addEventListener('click', hide);
+  document.getElementById('qr-close').addEventListener('click', hide);
+  addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+
+  function setup() {
+    urlEl.textContent = 'Generando QR…';
+    /* Pedimos la URL al servidor: usa la IP de la red (100.x, 192.168.x…),
+       nunca localhost, porque el celular no puede resolverlo. */
+    fetch('/api/qr-url')
+      .then(function (r) { return r.json(); })
+      .then(function (info) {
+        var u = info.url;
+        urlEl.textContent = u;
+        return fetch('/api/qr?url=' + encodeURIComponent(u)).then(function (r) { return r.json(); });
+      })
+      .then(function (d) {
+        if (d && d.dataUrl) image.innerHTML = '<img src="' + d.dataUrl + '" alt="QR">';
+      })
+      .catch(function () { urlEl.textContent = 'No se pudo generar el QR (servidor no disponible)'; });
+  }
+
+  window.QRModal = { show: show, hide: hide, setup: setup };
+})();
+</script>
+
+<div class="reveal">
+  <div class="slides">
+
+    <!-- 1 · PORTADA -->
+    <section class="s s-cover">
+      <div class="frame">
+        <p class="eyebrow rise" style="--d:0">Arquitectura de software · Sistemas POS</p>
+        <h1 class="cover-title rise" style="--d:1">Optimización de búsquedas<br><span class="grad">con Árboles Binarios de Búsqueda</span></h1>
+        <div class="cover-row">
+          <div class="cover-copy">
+            <p class="cover-sub rise" style="--d:2">
+              Doble índice ABB en memoria: vía principal por <b class="mono hl-cyan">código de barras</b>
+              y plan B alfabético por <b class="mono hl-emerald">nombre</b>.
+            </p>
+          </div>
+          <div class="cover-art rise" style="--d:4">
+            <div class="pos-mock">
+              <div class="pos-top mono"><i></i><i></i><i></i><span>caja-01 · pos.exe</span></div>
+              <div class="pos-scan">
+                <div class="barcode" aria-hidden="true"></div>
+                <div class="pos-data">
+                  <span class="mono pos-code">7790800</span>
+                  <span class="pos-hit">Yerba · $2.400 · stock 12</span>
+                </div>
+              </div>
+              <div class="pos-log mono">ABB[código] → raíz → derecha → <b>hit</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 · EL PROBLEMA -->
+    <section class="s">
+      <div class="frame">
+        <header class="head rise" style="--d:0">
+          <p class="eyebrow">El problema</p>
+          <h2>El cuello de botella está en <span class="grad-amber">cómo se busca</span></h2>
+          <p class="kicker">Cada escaneo dispara una búsqueda: ese diseño define la fila en caja.</p>
+        </header>
+        <div class="vs-grid">
+          <article class="card card-amber rise" style="--d:1">
+            <div class="card-top">
+              <span class="pill pill-amber mono">búsqueda lineal</span>
+              <span class="verdict verdict-bad mono">lista</span>
+            </div>
+            <div class="lin-row" aria-hidden="true">
+              <i data-k="0" class="hot" style="--i:0"></i><i data-k="1" class="hot" style="--i:1"></i><i data-k="2" class="hot" style="--i:2"></i><i data-k="3" class="hot" style="--i:3"></i><i data-k="4" class="hot" style="--i:4"></i><i data-k="5" class="hot" style="--i:5"></i><i data-k="6" class="hot" style="--i:6"></i><i data-k="7" class="hit" style="--i:7"></i>
+            </div>
+          </article>
+          <article class="card card-emerald rise" style="--d:2">
+            <div class="card-top">
+              <span class="pill pill-emerald mono">búsqueda binaria</span>
+              <span class="verdict verdict-good mono">doble ABB</span>
+            </div>
+            <div class="diagram diagram--mini" id="d-mini-abb"></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · ARQUITECTURA DE DOBLE ABB -->
+    <section class="s">
+      <div class="frame">
+        <header class="head head-tight rise" style="--d:0">
+          <p class="eyebrow">Concepto</p>
+          <h2>Un catálogo, <span class="grad">dos índices</span>, cero duplicación</h2>
+        </header>
+        <div class="arch-wrap rise" style="--d:1">
+          <div class="diagram" id="d-arch"></div>
+        </div>
+        <div class="legend-row">
+          <span class="legend legend-cyan fragment fade-right" data-fragment-index="1">Índice principal — clave: código de barras (escáner)</span>
+          <span class="legend legend-slate fragment" data-fragment-index="3">Nodo = clave + referencia (8 B) · los datos pesados viven una sola vez</span>
+          <span class="legend legend-emerald fragment fade-left" data-fragment-index="2">Índice secundario — clave: nombre (plan B sin lector)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 · LABORATORIO INTERACTIVO (slide con identidad propia) -->
+    <section class="s s-lab" id="slide-inter" data-transition="fade" data-transition-speed="slow">
+      <div class="lab-console">
+        <div class="lab-titlebar">
+          <span class="lab-status">● EN VIVO</span>
+          <span class="head-chip mono" id="mode-chip">modo: automático</span>
+        </div>
+
+        <div class="lab-body">
+
+          <form class="sim-form sim-form--top" id="inter-form" autocomplete="off">
+            <div class="sim-form-row">
+              <span class="sim-label">Clave</span>
+              <input class="sim-field" id="inter-q" type="text" placeholder="7790800 o Yerba"
+                     aria-label="Código de barras o nombre del producto" spellcheck="false">
+              <button class="sim-btn" type="submit">Buscar ↵</button>
+            </div>
+          </form>
+
+          <div class="dual-trees">
+            <article class="tree-card tree-card--cyan" id="card-num">
+              <header class="tree-head"><i class="dot dot-cyan"></i>ABB numérico<span class="tree-key">código de barras</span></header>
+              <div class="diagram diagram--inter" id="d-arbol-num"></div>
+            </article>
+            <article class="tree-card tree-card--emerald" id="card-nom">
+              <header class="tree-head"><i class="dot dot-emerald"></i>ABB alfabético<span class="tree-key">nombre</span></header>
+              <div class="diagram diagram--inter diagram--sans" id="d-arbol-nom"></div>
+            </article>
+          </div>
+
+          <div class="inter-foot">
+            <div class="inter-col inter-col--ctrl">
+              <span class="sim-label">Pasos</span>
+              <div class="sim-ctrls">
+                <button class="sim-ctl" id="inter-next" type="button">paso →</button>
+                <button class="sim-ctl sim-ctl--ghost" id="inter-reset" type="button">clear</button>
+              </div>
+            </div>
+            <div class="inter-col inter-col--log">
+              <span class="sim-label" id="inter-state">Traza · pausado</span>
+              <ol class="sim-loglines" id="inter-log"></ol>
+            </div>
+            <div class="inter-col inter-col--out">
+              <span class="sim-label">Salida</span>
+              <div class="sim-result is-idle" id="inter-result">
+                <span class="sim-rlabel">esperando</span>
+                <span class="sim-rtext">Escribí un código o un nombre y mirá los pasos</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 · IMPLEMENTACIÓN -->
+    <section class="s">
+      <div class="frame">
+        <header class="head head-tight rise" style="--d:0">
+          <p class="eyebrow">Implementación</p>
+          <h2>El índice en <span class="grad">tres piezas</span>: nodo, referencia, comparación</h2>
+        </header>
+        <div class="code-grid">
+          <div class="code-card rise" style="--d:1">
+            <div class="code-head mono"><i class="dot dot-cyan"></i><span>ArbolBinarioBusquedaCatalogo.java</span><span class="code-note" id="codePage">1 / 4</span></div>
+            <div class="code-viewport" id="codeViewport">
+              <div class="code-page active" data-label="Modelo · Producto">
+<pre><code class="language-java">static class Producto {
+    int codigo;
+    String nombre;
+    int precio;
+    int stock;
+
+    Producto(int codigo, String nombre, int precio, int stock) {
+        this.codigo = codigo;
+        this.nombre = nombre;
+        this.precio = precio;
+        this.stock = stock;
+    }
+
+    String descripcion() {
+        return codigo + " | " + nombre + " | $" + precio + " | stock " + stock;
+    }
+}</code></pre>
+              </div>
+              <div class="code-page" data-label="Modelo · Nodo y Traza">
+<pre><code class="language-java">static class Nodo {
+    Producto producto;
+    Nodo izquierdo;
+    Nodo derecho;
+
+    Nodo(Producto producto) {
+        this.producto = producto;
+        this.izquierdo = null;
+        this.derecho = null;
+    }
+}
+
+static class Traza {
+    int comparaciones;
+    String ultimoNodo;
+
+    Traza() {
+        this.comparaciones = 0;
+        this.ultimoNodo = "(vacío)";
+    }
+}</code></pre>
+              </div>
+              <div class="code-page" data-label="Búsqueda por código">
+<pre><code class="language-java">public static Producto buscarPorCodigo(Nodo nodo, int codigo, Traza traza) {
+    if (nodo == null) {
+        return null;
+    }
+
+    traza.comparaciones++;
+    traza.ultimoNodo = nodo.producto.nombre + " (" + nodo.producto.codigo + ")";
+
+    if (codigo == nodo.producto.codigo) {
+        return nodo.producto;
+    }
+
+    if (codigo < nodo.producto.codigo) {
+        return buscarPorCodigo(nodo.izquierdo, codigo, traza);
+    }
+
+    return buscarPorCodigo(nodo.derecho, codigo, traza);
+}</code></pre>
+              </div>
+              <div class="code-page" data-label="Búsqueda por nombre">
+<pre><code class="language-java">public static Producto buscarPorNombre(Nodo nodo, String nombre, Traza traza) {
+    if (nodo == null) {
+        return null;
+    }
+
+    traza.comparaciones++;
+    traza.ultimoNodo = nodo.producto.nombre;
+
+    int cmp = nombre.compareToIgnoreCase(nodo.producto.nombre);
+
+    if (cmp == 0) {
+        return nodo.producto;
+    }
+
+    if (cmp < 0) {
+        return buscarPorNombre(nodo.izquierdo, nombre, traza);
+    }
+
+    return buscarPorNombre(nodo.derecho, nombre, traza);
+}</code></pre>
+              </div>
+            </div>
+            <div class="code-pager mono">
+              <button type="button" class="page-btn" id="codePrev" disabled>← Anterior</button>
+              <span class="page-label" id="codeLabel">Modelo · Producto</span>
+              <button type="button" class="page-btn primary" id="codeNext">Siguiente →</button>
+            </div>
+          </div>
+          <aside class="code-notes">
+            <article class="side-card fragment fade-up">
+              <span class="side-k mono">Complejidad</span>
+              <p>Una comparación por nivel: <b class="mono">O(log n)</b>. Con 1.000.000 de productos, el peor caso son <b class="mono">20 saltos</b>.</p>
+            </article>
+            <article class="side-card fragment fade-up">
+              <span class="side-k mono">Memoria</span>
+              <p>El nodo guarda <b class="mono">producto + 2 referencias</b>. El objeto <span class="mono">Producto</span> vive <b>una sola vez</b> y lo comparten ambos árboles.</p>
+            </article>
+            <article class="side-card fragment fade-up">
+              <span class="side-k mono">Doble índice</span>
+              <p>Otro árbol con la misma clase, cambiando la clave por <span class="mono">nombre.compareToIgnoreCase(...)</span>.</p>
+            </article>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 · RIESGO Y CIERRE -->
+    <section class="s">
+      <div class="frame">
+        <header class="head head-tight rise" style="--d:0">
+          <p class="eyebrow">Riesgo y cierre</p>
+          <h2>El ABB solo es rápido si <span class="grad-amber">se mantiene balanceado</span></h2>
+        </header>
+        <div class="risk-grid">
+          <article class="card card-emerald card-risk rise" style="--d:1">
+            <div class="card-top"><span class="pill pill-emerald mono">Balanceado</span></div>
+            <div class="diagram diagram--risk" id="d-bal"></div>
+          </article>
+          <article class="card card-amber card-risk rise" style="--d:2">
+            <div class="card-top"><span class="pill pill-amber mono">Degenerado</span></div>
+            <div class="diagram diagram--risk" id="d-deg"></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="app.js"></script>
+<script>
+(function () {
+  var pages = [].slice.call(document.querySelectorAll('#codeViewport .code-page'));
+  if (!pages.length) return;
+
+  var num = document.getElementById('codePage');
+  var label = document.getElementById('codeLabel');
+  var prev = document.getElementById('codePrev');
+  var next = document.getElementById('codeNext');
+  var actual = 0;
+
+  function render() {
+    pages.forEach(function (page, i) { page.classList.toggle('active', i === actual); });
+    num.textContent = (actual + 1) + ' / ' + pages.length;
+    label.textContent = pages[actual].getAttribute('data-label') || '';
+    prev.disabled = actual === 0;
+    next.disabled = actual === pages.length - 1;
+    if (window.enviarCodigoInfo) {
+      window.enviarCodigoInfo(actual + 1, pages.length, pages[actual].getAttribute('data-label'));
+    }
+  }
+
+  prev.addEventListener('click', function () {
+    if (actual > 0) { actual--; render(); }
+  });
+  next.addEventListener('click', function () {
+    if (actual < pages.length - 1) { actual++; render(); }
+  });
+  if (window.Reveal && Reveal.on) {
+    Reveal.on('slidechanged', function (e) {
+      if (e.currentSlide && e.currentSlide.querySelector && e.currentSlide.querySelector('#codeViewport')) {
+        actual = 0;
+        render();
+      }
+    });
+  }
+  render();
+})();
+</script>
+</body>
+</html>

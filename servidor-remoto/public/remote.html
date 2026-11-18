@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Control Remoto — ABB × POS</title>
+  <style>
+    :root {
+      --bg-body: #000000;
+      --bg-btn: #0a0a0d;
+      --bg-active: #3a3a3f;
+      --color-idle: rgba(255, 255, 255, 0.32);
+      --color-active: rgba(255, 255, 255, 0.85);
+      --border-btn: 1px solid rgba(255, 255, 255, 0.05);
+      --accent: #3b82f6;
+      --accent-dim: rgba(59, 130, 246, 0.16);
+      --status-connected: #22c55e;
+      --status-connecting: #eab308;
+      --status-disconnected: #ef4444;
+      --text-primary: rgba(255, 255, 255, 0.92);
+      --text-secondary: rgba(255, 255, 255, 0.42);
+      --transition-snap: 0.05s ease-out;
+      --transition-fade: 0.3s ease-in;
+    }
+
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    html { touch-action: manipulation; }
+    body {
+      background-color: var(--bg-body);
+      height: 100svh; width: 100vw;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+      display: flex; flex-direction: column; gap: 8px;
+      overscroll-behavior: none;
+      -webkit-user-select: none;
+    }
+
+    .status-bar {
+      flex: 0 0 auto;
+      background-color: var(--bg-btn);
+      border: var(--border-btn);
+      border-radius: 24px;
+      padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .status-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .presentation-name {
+      font-size: 15px; font-weight: 600; color: var(--text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .connection {
+      flex: 0 0 auto;
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+      text-transform: uppercase;
+      padding: 5px 10px 5px 8px; border-radius: 100px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .connection-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+    .connection[data-state="connected"] .connection-dot { background: var(--status-connected); }
+    .connection[data-state="connected"] .connection-label { color: var(--status-connected); }
+    .connection[data-state="connecting"] .connection-dot {
+      background: var(--status-connecting);
+      animation: pulse 1s ease-in-out infinite;
+    }
+    .connection[data-state="connecting"] .connection-label { color: var(--status-connecting); }
+    .connection[data-state="disconnected"] .connection-dot { background: var(--status-disconnected); }
+    .connection[data-state="disconnected"] .connection-label { color: var(--status-disconnected); }
+    @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.8); } }
+
+    .status-bottom { display: flex; justify-content: space-between; align-items: baseline; }
+    .slide-count { font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+    .slide-count strong { color: var(--text-primary); font-weight: 600; }
+    .progress-track { width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 100px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 100px; transition: width 0.25s ease-out; }
+
+    .remote-layout {
+      flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 2fr 1fr; gap: 8px; width: 100%;
+    }
+    .btn {
+      background-color: var(--bg-btn); border: var(--border-btn); border-radius: 24px;
+      color: var(--color-idle); display: flex; justify-content: center; align-items: center;
+      cursor: pointer; outline: none;
+      transition: background var(--transition-fade), color var(--transition-fade), transform var(--transition-fade);
+      will-change: background, color, transform;
+    }
+    .btn svg {
+      width: 42px; height: 42px; fill: none; stroke: currentColor;
+      stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+      transition: transform var(--transition-fade);
+    }
+    .btn:active {
+      background-color: var(--bg-btn); color: var(--color-idle);
+      transform: scale(0.98);
+      transition: transform var(--transition-snap);
+    }
+    .btn:active svg { transform: scale(0.85); transition: transform var(--transition-snap); }
+    .btn-up { grid-column: 1 / -1; grid-row: 1; }
+    .btn-prev { grid-column: 1 / 2; grid-row: 2; }
+    .btn-next { grid-column: 2 / -1; grid-row: 2; }
+    .btn-down { grid-column: 1 / -1; grid-row: 3; }
+
+    #gesture-canvas { position: fixed; inset: 0; z-index: 9999; pointer-events: none; }
+    #gesture-dot {
+      position: fixed; width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent); opacity: 0;
+      transform: translate(-50%, -50%) scale(0);
+      transition: opacity .15s ease, transform .15s ease;
+      pointer-events: none; z-index: 10000;
+      box-shadow: 0 0 30px rgba(59,130,246,0.5), 0 0 60px rgba(59,130,246,0.2);
+    }
+    #gesture-dot.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    /* === CONSULTA AL LABORATORIO (solo en la slide 4) === */
+    .query-bar {
+      position: relative; z-index: 0;
+      flex: 0 0 auto;
+      background-color: var(--bg-btn);
+      border-radius: 24px;
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: 0; padding: 0 14px; margin-top: -8px;
+      border: 0; opacity: 0; overflow: hidden;
+      transform: translateY(18px) scaleY(.8);
+      transform-origin: top center;
+      pointer-events: none;
+      transition: max-height .5s cubic-bezier(.22,1,.36,1),
+                  opacity .32s ease,
+                  transform .5s cubic-bezier(.22,1,.36,1),
+                  padding .5s ease, margin-top .5s ease;
+    }
+    body.lab-mode .query-bar {
+      max-height: 240px; padding: 12px 14px 14px; margin-top: 0;
+      border: var(--border-btn);
+      opacity: 1; transform: translateY(0) scaleY(1);
+      pointer-events: auto;
+    }
+    .code-nav {
+      position: relative; z-index: 0;
+      flex: 0 0 auto;
+      background-color: var(--bg-btn);
+      border-radius: 24px;
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: 0; padding: 0 14px; margin-top: -8px;
+      border: 0; opacity: 0; overflow: hidden;
+      transform: translateY(18px) scaleY(.8);
+      transform-origin: top center;
+      pointer-events: none;
+      transition: max-height .5s cubic-bezier(.22,1,.36,1),
+                  opacity .32s ease,
+                  transform .5s cubic-bezier(.22,1,.36,1),
+                  padding .5s ease, margin-top .5s ease;
+    }
+    body.code-mode .code-nav {
+      max-height: 130px; padding: 12px 14px 14px; margin-top: 0;
+      border: var(--border-btn);
+      opacity: 1; transform: translateY(0) scaleY(1);
+      pointer-events: auto;
+    }
+    .code-nav-title { display: flex; justify-content: space-between; align-items: center; }
+    .code-nav-page { font-size: 12px; color: var(--accent); font-variant-numeric: tabular-nums; }
+    .code-nav .query-btn { flex: 1; padding: 0 8px; font-size: 12px; }
+    .remote-layout { position: relative; z-index: 1; }
+    @keyframes pad-sweep {
+      0%   { transform: scale(1); }
+      38%  { transform: scale(1.09); }
+      72%  { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+    @keyframes pad-flash {
+      0%, 100% { transform: scale(1); }
+      38%      { transform: scale(1.04); }
+    }
+    .remote-layout.sweeping { animation: pad-sweep .6s cubic-bezier(.22,1,.36,1); }
+    .remote-layout.sweeping .btn { animation: pad-flash .6s ease; }
+    @media (prefers-reduced-motion: reduce) {
+      .query-bar, .code-nav { transition: none; transform: none; }
+      .remote-layout.sweeping, .remote-layout.sweeping .btn { animation: none; }
+    }
+    .query-title {
+      font-size: 11px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--text-secondary);
+    }
+    .query-row { display: flex; gap: 8px; }
+    .query-input {
+      flex: 1; min-width: 0; height: 42px;
+      background: #000; border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px; padding: 0 12px;
+      color: var(--text-primary); font-size: 15px;
+      font-family: ui-monospace, "JetBrains Mono", monospace;
+      outline: none; user-select: text; -webkit-user-select: text;
+    }
+    .query-input:focus { border-color: var(--accent); }
+    .query-input::placeholder { color: rgba(255,255,255,.24); }
+    .query-btn {
+      flex: 0 0 auto; height: 42px; padding: 0 16px;
+      border-radius: 12px; border: 1px solid transparent;
+      background: var(--accent); color: #fff;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: filter .15s, transform .05s;
+    }
+    .query-btn:active { filter: brightness(1.25); transform: scale(.97); }
+    .query-btn.secondary { background: var(--bg-active); color: var(--color-active); border-color: var(--border-btn); }
+    .query-btn.ghost { background: transparent; color: var(--text-secondary); border-color: var(--border-btn); }
+    .query-actions { display: flex; gap: 8px; }
+    .query-actions .query-btn { flex: 1; padding: 0 8px; font-size: 12px; }
+    .lab-feedback {
+      min-height: 30px; font-size: 12px; line-height: 1.35;
+      color: var(--text-secondary);
+      background: rgba(255,255,255,.03); border-radius: 10px;
+      padding: 7px 10px;
+    }
+    .lab-feedback.ok { color: var(--status-connected); }
+    .lab-feedback.bad { color: var(--status-disconnected); }
+  </style>
+</head>
+<body>
+
+  <div class="status-bar">
+    <div class="status-top">
+      <span class="presentation-name" id="presentationName">ABB × POS · doble índice</span>
+      <div class="connection" id="connectionBadge" data-state="disconnected">
+        <span class="connection-dot"></span>
+        <span class="connection-label" id="connectionLabel">Desconectado</span>
+      </div>
+    </div>
+    <div class="status-bottom">
+      <span class="slide-count"><strong id="currentSlide">-</strong>&nbsp;/&nbsp;<span id="totalSlides">-</span></span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width: 4%;"></div></div>
+  </div>
+
+  <canvas id="gesture-canvas"></canvas>
+  <div id="gesture-dot"></div>
+
+  <div class="remote-layout">
+    <button class="btn btn-up" id="btnUp" aria-label="Arriba">
+      <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></svg>
+    </button>
+    <button class="btn btn-prev" id="btnPrev" aria-label="Anterior">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <button class="btn btn-next" id="btnNext" aria-label="Siguiente">
+      <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+    <button class="btn btn-down" id="btnDown" aria-label="Abajo">
+      <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+  </div>
+
+  <div class="query-bar">
+    <span class="query-title">Laboratorio interactivo</span>
+    <div class="query-row">
+      <input class="query-input" id="queryInput" type="text" placeholder="7790800 o Yerba"
+             autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Clave a buscar">
+      <button class="query-btn" id="btnSearch">Buscar</button>
+    </div>
+    <div class="query-actions">
+      <button class="query-btn ghost" id="btnStepBack">← Paso</button>
+      <button class="query-btn secondary" id="btnStep">Paso →</button>
+      <button class="query-btn ghost" id="btnClear">Limpiar</button>
+    </div>
+    <div class="lab-feedback" id="labFeedback">Escribí un código o nombre: aparece en la compu mientras tecleás.</div>
+  </div>
+
+  <div class="code-nav">
+    <div class="code-nav-title">
+      <span class="query-title">Código Java</span>
+      <span class="code-nav-page" id="codePageRemote">1 / 4</span>
+    </div>
+    <div class="query-actions">
+      <button class="query-btn ghost" id="btnCodePrev">← Anterior</button>
+      <button class="query-btn secondary" id="btnCodeNext">Siguiente →</button>
+    </div>
+  </div>
+
+  <script>
+    const els = {
+      badge: document.getElementById('connectionBadge'),
+      label: document.getElementById('connectionLabel'),
+      current: document.getElementById('currentSlide'),
+      total: document.getElementById('totalSlides'),
+      progress: document.getElementById('progressFill')
+    };
+    const labels = { connected: 'Conectado', connecting: 'Conectando', disconnected: 'Desconectado' };
+    let ws = null, reconnectTimer = null, reconnectAttempts = 0, current = 0, total = 0;
+    let labMode = false, codeMode = false, sweepTimer = null;
+
+    /* El panel de consulta solo existe en la slide 4. Al salir se repliega
+       hacia abajo y el D-Pad hace un barrido: crece y vuelve a su tamaño. */
+    function setLabMode(on) {
+      if (labMode === on) return;
+      labMode = on;
+      document.body.classList.toggle('lab-mode', on);
+      const layout = document.querySelector('.remote-layout');
+      if (sweepTimer) { clearTimeout(sweepTimer); sweepTimer = null; }
+      layout.classList.remove('sweeping');
+      if (!on) {
+        void layout.offsetWidth;
+        layout.classList.add('sweeping');
+        sweepTimer = setTimeout(() => {
+          layout.classList.remove('sweeping');
+          sweepTimer = null;
+        }, 620);
+      }
+    }
+
+    function setCodeMode(on) {
+      if (codeMode === on) return;
+      codeMode = on;
+      document.body.classList.toggle('code-mode', on);
+    }
+
+    function setStatus(state) {
+      els.badge.dataset.state = state;
+      els.label.textContent = labels[state];
+    }
+    function updateSlide(index, totalSlides, fragment, totalFragments) {
+      current = index; total = totalSlides;
+      els.current.textContent = (totalFragments && fragment) ? index + '.' + fragment : (index || '-');
+      els.total.textContent = totalSlides || '-';
+      let pct;
+      if (totalFragments) {
+        pct = Math.max(4, Math.round(((index - 1 + (fragment - 1) / totalFragments) / totalSlides) * 100));
+      } else {
+        pct = totalSlides ? Math.max(4, Math.round((index / totalSlides) * 100)) : 4;
+      }
+      els.progress.style.width = pct + '%';
+    }
+    function connect() {
+      setStatus('connecting');
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(proto + '//' + location.host);
+      ws.onopen = () => {
+        setStatus('connected');
+        ws.send(JSON.stringify({ type: 'controller' }));
+        reconnectAttempts = 0;
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      };
+      ws.onclose = () => { setStatus('disconnected'); scheduleReconnect(); };
+      ws.onerror = () => ws.close();
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'slideInfo') {
+            updateSlide(msg.index, msg.total, msg.fragment || 0, msg.totalFragments || 0);
+            setLabMode(!!msg.lab);
+            setCodeMode(!!msg.code);
+          }
+          if (msg.type === 'codeInfo') {
+            document.getElementById('codePageRemote').textContent =
+              (msg.page || 1) + ' / ' + (msg.total || 4);
+          }
+          if (msg.type === 'labInfo') {
+            const fb = document.getElementById('labFeedback');
+            fb.textContent = msg.result || msg.state || '';
+            fb.className = 'lab-feedback' + (msg.ok ? ' ok' : msg.bad ? ' bad' : '');
+          }
+        } catch (_) {}
+      };
+    }
+    function scheduleReconnect() {
+      if (reconnectTimer) return;
+      const delay = Math.min(15000, 2000 * Math.pow(1.5, reconnectAttempts++));
+      reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, delay);
+    }
+    function send(action) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action }));
+        navigator.vibrate && navigator.vibrate(12);
+      }
+    }
+    function setupLongPress(id, action) {
+      const el = document.getElementById(id);
+      let timer = null, interval = null;
+      function start() {
+        send(action);
+        timer = setTimeout(() => { interval = setInterval(() => send(action), 80); }, 300);
+      }
+      function stop() {
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (interval) { clearInterval(interval); interval = null; }
+      }
+      el.addEventListener('pointerdown', start);
+      el.addEventListener('pointerup', stop);
+      el.addEventListener('pointerleave', stop);
+      el.addEventListener('pointercancel', stop);
+    }
+    setupLongPress('btnUp', 'up');
+    setupLongPress('btnDown', 'down');
+    setupLongPress('btnPrev', 'left');
+    setupLongPress('btnNext', 'right');
+
+    /* === consulta al laboratorio === */
+    const queryInput = document.getElementById('queryInput');
+    const feedback = document.getElementById('labFeedback');
+
+    function sendQuery() {
+      const value = queryInput.value.trim();
+      /* La validación la hace la presentación: así el error se ve también
+         en la compu, no solo en este celular. */
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'query', value: value }));
+        navigator.vibrate && navigator.vibrate(12);
+        feedback.textContent = 'Buscando «' + value + '»…';
+        feedback.className = 'lab-feedback';
+      }
+    }
+
+    /* Cada tecla se replica en la compu: no hace falta tocar Buscar. */
+    let inputTimer = null;
+    queryInput.addEventListener('input', () => {
+      if (inputTimer) clearTimeout(inputTimer);
+      inputTimer = setTimeout(() => {
+        inputTimer = null;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'input', value: queryInput.value }));
+        }
+      }, 180);
+    });
+
+    document.getElementById('btnSearch').addEventListener('click', sendQuery);
+    queryInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendQuery(); } });
+    document.getElementById('btnStepBack').addEventListener('click', () => {
+      send('stepBack');
+      feedback.className = 'lab-feedback';
+    });
+    document.getElementById('btnStep').addEventListener('click', () => {
+      send('step');
+      feedback.className = 'lab-feedback';
+    });
+    document.getElementById('btnClear').addEventListener('click', () => {
+      queryInput.value = '';
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'input', value: '' }));
+      }
+      send('clear');
+      feedback.textContent = 'Laboratorio limpio.';
+      feedback.className = 'lab-feedback';
+      queryInput.focus();
+    });
+
+    document.getElementById('btnCodePrev').addEventListener('click', () => send('codePrev'));
+    document.getElementById('btnCodeNext').addEventListener('click', () => send('codeNext'));
+
+    (function gestureTrail() {
+      const canvas = document.getElementById('gesture-canvas');
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const dot = document.getElementById('gesture-dot');
+      let points = [], startX = 0, startY = 0, active = false, fadeAlpha = 0, fadeId = null;
+
+      function resize() {
+        canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+        canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
+        ctx.scale(dpr, dpr);
+      }
+      resize(); addEventListener('resize', resize);
+
+      function drawTrail() {
+        ctx.clearRect(0, 0, innerWidth, innerHeight);
+        if (points.length < 2) return;
+        const len = points.length, last = points[len - 1], left = [], right = [];
+        for (let i = 0; i < len; i++) {
+          const p = points[i], w = Math.max(0.5, (i / len) * 8);
+          let nx, ny;
+          if (i === 0) { nx = points[1].x - p.x; ny = points[1].y - p.y; }
+          else if (i === len - 1) { nx = p.x - points[i - 1].x; ny = p.y - points[i - 1].y; }
+          else { nx = points[i + 1].x - points[i - 1].x; ny = points[i + 1].y - points[i - 1].y; }
+          const d = Math.hypot(nx, ny);
+          if (d < 0.001) continue;
+          const px = (-ny / d) * w, py = (nx / d) * w;
+          left.push(p.x + px, p.y + py); right.push(p.x - px, p.y - py);
+        }
+        if (left.length < 2) return;
+        const rE = Math.max(0.5, ((len - 1) / len) * 8);
+        ctx.save();
+        ctx.shadowColor = 'rgba(59,130,246,0.35)'; ctx.shadowBlur = 24;
+        ctx.beginPath(); ctx.moveTo(left[0], left[1]);
+        for (let i = 2; i < left.length; i += 2) ctx.lineTo(left[i], left[i + 1]);
+        for (let i = right.length - 2; i >= 0; i -= 2) ctx.lineTo(right[i], right[i + 1]);
+        ctx.closePath(); ctx.fillStyle = 'hsla(217,91%,55%,' + (0.4 * fadeAlpha) + ')'; ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.arc(last.x, last.y, rE, 0, Math.PI * 2);
+        ctx.fillStyle = 'hsla(217,91%,55%,' + (0.4 * fadeAlpha) + ')'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(left[0], left[1]);
+        for (let i = 2; i < left.length; i += 2) ctx.lineTo(left[i], left[i + 1]);
+        for (let i = right.length - 2; i >= 0; i -= 2) ctx.lineTo(right[i], right[i + 1]);
+        ctx.closePath(); ctx.fillStyle = 'hsla(217,91%,65%,' + (0.7 * fadeAlpha) + ')'; ctx.fill();
+        ctx.restore();
+      }
+      function startFadeOut() {
+        fadeAlpha = 1;
+        const t0 = performance.now();
+        (function step(now) {
+          fadeAlpha = Math.max(0, 1 - (now - t0) / 500);
+          drawTrail();
+          if (fadeAlpha > 0) fadeId = requestAnimationFrame(step);
+          else { ctx.clearRect(0, 0, innerWidth, innerHeight); fadeId = null; }
+        })(t0);
+      }
+      addEventListener('touchstart', (e) => {
+        const x = e.touches[0].clientX, y = e.touches[0].clientY;
+        if (fadeId) { cancelAnimationFrame(fadeId); fadeId = null; }
+        startX = x; startY = y; points = [{ x, y }]; active = true; fadeAlpha = 1;
+        dot.style.left = x + 'px'; dot.style.top = y + 'px'; dot.classList.add('visible');
+        ctx.clearRect(0, 0, innerWidth, innerHeight);
+      }, { passive: true });
+      addEventListener('touchmove', (e) => {
+        if (!active) return;
+        const x = e.touches[0].clientX, y = e.touches[0].clientY;
+        points.push({ x, y }); if (points.length > 60) points.shift();
+        dot.style.left = x + 'px'; dot.style.top = y + 'px'; drawTrail();
+      }, { passive: true });
+      addEventListener('touchend', (e) => {
+        active = false; dot.classList.remove('visible'); startFadeOut();
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 50) return;
+        send(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'left' : 'right') : (dy > 0 ? 'up' : 'down'));
+      }, { passive: true });
+    })();
+
+    connect();
+  </script>
+</body>
+</html>
