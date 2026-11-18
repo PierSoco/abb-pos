@@ -111,7 +111,8 @@ coincidencia. Así el camino no se confunde con un error.
   puede hacer desde el celular con los botones `Paso →`, `← Paso` y `Limpiar`.
   Cada comparación requiere tocar el botón: no hay avance automático.
 - Si el valor no está en el catálogo, el resultado se muestra en rojo
-  (`✕ no está en el catálogo`) con halo rojo en el último nodo comparado.
+  (`✕ no está en el catálogo`), sin marcar el último nodo en rojo: el camino
+  solo usa ámbar para los nodos verificados y descartados.
 
 ## Archivos
 
