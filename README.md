@@ -1,136 +1,174 @@
-# ABB × POS — Optimización de búsquedas en sistemas de punto de venta
+# ABB × POS — búsquedas ultrarrápidas con doble índice
 
-Presentación web (Reveal.js vía CDN) sobre la arquitectura de **doble índice con Árboles
-Binarios de Búsqueda en memoria** para resolver búsquedas ultrarrápidas en caja.
+Presentación de 6 diapositivas hecha con **Reveal.js** sobre una arquitectura de
+**doble índice en memoria**: dos Árboles Binarios de Búsqueda apuntando a los
+mismos objetos `Producto`, uno por código de barras y otro por nombre.
 
-## Cómo usarla
+Incluye un **laboratorio interactivo** para recorrer las comparaciones paso a
+paso y un **control remoto por celular** compatible con
+[PierSoco/Reveal-Remote](https://github.com/PierSoco/Reveal-Remote).
 
-Abrir `index.html` con doble clic (no requiere servidor ni instalación:
-las librerías y fuentes se cargan desde CDN; se necesita conexión a internet).
+Repo público: **https://github.com/PierSoco/abb-pos**
 
-## Navegación
+---
 
-| Acción | Control |
-|---|---|
-| Avanzar / retroceder | `→` `←` o la barra espaciadora |
-| Ir a una diapositiva | las flechas de la esquina inferior derecha |
-| Vista general de todas | `Esc` |
-| Enlace directo a una slide | la URL con `#/n` (p. ej. `#/6`) |
+## Inicio rápido
 
-Presentación en 6 diapositivas: portada · el problema · arquitectura de doble ABB ·
-**laboratorio interactivo** · implementación en Java en un visor paginado (4 partes: modelo y búsquedas) ·
-desbalanceo y cierre.
+### Solo la presentación
 
-## Control remoto (Reveal Remote)
+Abrir `index.html` con doble clic. No requiere instalación: Reveal.js, el
+resaltador de sintaxis y las fuentes se cargan desde CDN (necesita internet).
 
-La presentación se puede manejar desde el celular con el mismo protocolo de
-[PierSoco/Reveal-Remote](https://github.com/PierSoco/Reveal-Remote): WebSocket,
-D-Pad táctil, swipes y sincronización del estado de slide/fragmentos.
+### Con control remoto
 
 ```bat
 cd servidor-remoto
 iniciar.bat
 ```
 
-Luego abrir `http://localhost:3000` en la PC y `http://<IP_DE_LA_PC>:3000/remote`
-en el celular. Para no escribir la IP, pasar el mouse por el **borde superior** de
-la presentación: se abre el modal QR del repo original (no hay botones flotantes).
-El servidor elige la IP de la **Wi‑Fi** (no `localhost` ni Tailscale) y genera
-el QR con `http://10.10.x.x:3000/remote`. Si no detecta Wi‑Fi, usa otra IP
-privada. El modal se cierra solo cuando el celular se vincula.
+En Linux/macOS:
 
-El servidor hace de relay en un solo puerto; la presentación se registra como
-`display` y el celular como `controller`. Si se abre `index.html` sin servidor,
-el control remoto simplemente no se activa y la presentación funciona igual con
-el teclado.
+```bash
+cd servidor-remoto
+npm install
+node servidor.js
+```
 
-El remoto tiene, debajo del D-Pad, un **input de consulta** y los botones
-`← Paso`, `Paso →`, `Buscar` y `Limpiar`. El panel **solo aparece en la
-diapositiva 4**: al pasar a cualquier otra slide se repliega suavemente hacia
-abajo y el D-Pad hace un barrido (crece y vuelve a su tamaño original).
+Luego abrir:
 
-- **Escribir** en el celular replica el texto en la compu en vivo (debounce de
-  180 ms), recalcula la ruta y muestra solo el paso 1; no hace falta tocar
-  `Buscar` ni se avanzan pasos por escribir.
-- Se requieren **al menos 3 dígitos o letras** (espacios y guiones no cuentan).
-  Con menos, el campo muestra `Mínimo 3 dígitos o letras` y no se inicia la
-  búsqueda; el error se ve en la compu y en el celular.
-- `Buscar` envía el texto al input de la diapositiva 4, salta a esa slide y la
-  deja pausada en el paso 1.
-- `Paso →` avanza una comparación por toque (equivale al `paso →` de la slide).
-- `← Paso` retrocede una comparación redibujando la traza anterior.
-- `Limpiar` vacía el campo en ambos dispositivos y reinicia la traza.
-- El feedback del celular se actualiza con el resultado de la búsqueda.
+- PC: `http://localhost:3000`
+- Celular: `http://<IP_DE_LA_PC>:3000/remote`
 
-En la **diapositiva 5** el panel de consulta se reemplaza por otro con
-`← Anterior` y `Siguiente →`: mueve las 4 partes del visor de código Java y
-muestra el número de parte que hay en la compu. Los botones del D-Pad solo
-cambian de tamaño al tocarlos; mantienen el mismo color que en reposo.
+El QR se abre **pasando el mouse por el borde superior** de la presentación.
+El servidor elige la IP de la **Wi-Fi** (por ejemplo `10.10.x.x`), nunca
+`localhost` ni Tailscale, y genera el QR con esa dirección. No hay botones
+flotantes.
 
-### Laboratorio interactivo (diapositiva 4)
+---
 
-Se llega con las flechas de navegación, sin botones intermedios. Es una slide con
-identidad propia pero deliberadamente **simple**: una superficie lisa `#0E1523`,
-sin rejillas, marcas de registro ni cartelas; solo el input, los dos árboles y el
-panel de resultado.
+## Navegación
 
-| Resto de la presentación | Laboratorio |
+| Acción | Control |
 |---|---|
-| Tarjetas glass con glow | Panel plano `#0E1523` con borde tenue y esquinas redondeadas |
-| Acentos cyan / esmeralda | Misma paleta: cyan = código, esmeralda = nombre |
-| Varios niveles de detalle | Una sola fila de controles y tres bloques: controles, traza y salida |
+| Avanzar / retroceder | `→` `←` o barra espaciadora |
+| Ir a una diapositiva | flechas de la esquina inferior derecha |
+| Vista general | `Esc` |
+| Enlace directo | `#/n` en la URL (p. ej. `#/4`) |
 
-La slide 3 («Un catálogo, dos índices, cero duplicación») explica el concepto con
-sus tres leyendas por fragments; la slide 4 permite probarlo. En ambas el input
-está arriba y los dos árboles abajo, siempre visibles.
+Las 6 diapositivas son:
 
-La entrada es `fade` lento (`data-transition-speed="slow"`) con una aparición suave
-del panel. Dentro, los estados del árbol, el log y la salida cambian con transiciones
-continuas. No hay reproducción automática: cada comparación se muestra al **tocar
-el botón `paso →`**. Todo se desactiva con `prefers-reduced-motion`.
+1. Portada.
+2. El problema: búsquedas lentas en caja.
+3. Un catálogo, dos índices, cero duplicación.
+4. **Laboratorio interactivo** (búsqueda manual en ambos ABB).
+5. Implementación en Java, en un visor paginado de 4 partes.
+6. Riesgo y cierre: la importancia de mantener el árbol balanceado.
 
-Se detecta automáticamente el modo: si se escriben solo dígitos se usa el ABB
-numérico (clave: código de barras, resaltado en cyan); en caso contrario se usa
-el ABB alfabético (clave: nombre, resaltado en esmeralda). El otro índice queda
-atenuado pero sigue en pantalla.
+---
 
-La coincidencia es **por prefijo**, no exacta: `yer` encuentra a **Yerba** y
-`77908` al código **7790800**, sin necesidad de escribir la clave completa. El
-resultado indica `✓ hallado · por prefijo`.
+## Laboratorio interactivo (slide 4)
 
-Los nodos que se van verificando y descartando se marcan en **ámbar** (`›`),
-nunca en rojo: el rojo queda reservado al resultado final cuando no hay
-coincidencia. Así el camino no se confunde con un error.
+Se ingresa con las flechas, sin botones intermedios. El panel es deliberadamente
+simple: fondo plano `#0E1523`, sin rejillas ni cartelas; arriba el input y abajo
+los dos árboles, siempre visibles. La entrada es `fade` lento.
 
-- **Al escribir** (en la compu o en el celular), cada tecla recalcula la ruta
-  (debounce de 180 ms) y actualiza **solo el paso 1**; nunca avanza solo.
-- Hasta llegar a **3 dígitos o letras** no se busca: el panel indica cuántos
-  caracteres válidos llevás (`1 de 3`, `2 de 3`).
-- `Buscar ↵` (o `Enter`) deja la búsqueda **pausada en el paso 1** para explicarla.
-- `paso →` avanza de a una comparación por toque; `clear` limpia. Lo mismo se
-  puede hacer desde el celular con los botones `Paso →`, `← Paso` y `Limpiar`.
-  Cada comparación requiere tocar el botón: no hay avance automático.
-- Si el valor no está en el catálogo, el resultado se muestra en rojo
-  (`✕ no está en el catálogo`), sin marcar el último nodo en rojo: el camino
-  solo usa ámbar para los nodos verificados y descartados.
+### Reglas de búsqueda
 
-## Archivos
+- Si se escriben **solo dígitos** se usa el ABB numérico (cyan); si no, el ABB
+  alfabético (esmeralda). El otro índice queda atenuado pero visible.
+- Se necesitan **al menos 3 dígitos o letras** (espacios y guiones no cuentan).
+  Con menos se muestra `Mínimo 3 dígitos o letras` y no se busca.
+- La coincidencia es **por prefijo**: `yer` encuentra a **Yerba** y `77908` al
+  código **7790800**. El resultado indica `✓ hallado · por prefijo`.
+- **No hay autoplay**. `Buscar ↵` o escribir dejan la búsqueda pausada en el
+  paso 1. Cada comparación requiere tocar `paso →`.
+- Los nodos verificados y descartados se marcan en **ámbar** (`›`). El rojo se
+  reserva al resultado final `✕ no está en el catálogo`, sin marcar el último
+  nodo comparado.
+- `clear` reinicia la traza. Todo respeta `prefers-reduced-motion`.
 
-- `index.html` — contenido y estructura de las 6 diapositivas.
-- `../ayed3/02-ejemplosJava/13-Arboles/ArbolBinarioBusquedaCatalogo.java` —
-  la misma lógica de búsqueda implementada en Java, siguiendo el estilo del profesor
-  (`static class Nodo`, ayudantes recursivos, Javadoc con Contrato/Precondiciones/
-  Postcondiciones). Dos índices sobre los mismos objetos `Producto`, búsqueda por
-  código y por nombre con traza de comparaciones y caso «no está en el catálogo».
-- `styles.css` — tema "Modern Tech / Dark SaaS" (fondo `#0B0F19`, tarjetas glass,
-  acentos cyan `#38BDF8` / esmeralda `#10B981`, Plus Jakarta Sans + JetBrains Mono) y
-  estilos de los diagramas SVG y del bloque de código. La slide 4 usa un panel simple
-  `#0E1523` sobre la misma paleta cyan / esmeralda del resto. Conserva todas las
-  animaciones (`rise`, `scan`, `floaty`, `linpulse`, `beamflow`,
-  `caretblink`, `lab-pulse`, `simshake`) y los estados SVG del simulador.
-- `app.js` — genera por código todos los diagramas SVG (árboles, tarjetas de objetos en
-  RAM, halos de búsqueda, conectores), inicializa Reveal.js (1280 × 720) y conecta
-  la presentación como `display` del control remoto.
-- `servidor-remoto/` — relay WebSocket + QR del control remoto (`servidor.js`,
-  `public/remote.html`, `iniciar.bat`). Basado en
-  [PierSoco/Reveal-Remote](https://github.com/PierSoco/Reveal-Remote).
+### Catálogo de ejemplo
+
+| Código | Producto |
+|---|---|
+| `7790040` | Alfajor |
+| `7790100` | Arroz |
+| `7790300` | Coca-Cola |
+| `7790500` | Leche |
+| `7790700` | Pan |
+| `7790800` | Yerba |
+| `7790900` | Zanahoria |
+
+---
+
+## Control remoto
+
+Un solo servidor Express + WebSocket hace de relay en el puerto `3000`. La
+presentación se registra como `display` y el celular como `controller`.
+Si se abre `index.html` sin servidor, la presentación funciona igual con teclado.
+
+El remoto conserva el estilo original del repo: OLED negro, azul `#3b82f6`,
+D-Pad SVG, gesture trail, vibración, long-press, swipes, telemetría y
+reconexión automática.
+
+| Slide | Panel en el celular | Botones |
+|---|---|---|
+| 4 — Laboratorio | Consulta | `Buscar`, `Paso →`, `← Paso`, `Limpiar`, más input en vivo |
+| 5 — Código Java | Visor de código | `Siguiente →`, `← Anterior`, con indicador `1 / 4` |
+
+En cualquier otra slide ambos paneles se repliegan y el D-Pad vuelve a su tamaño
+original. Los botones del D-Pad solo cambian de tamaño al tocarlos: mantienen el
+mismo color que en reposo.
+
+- La escritura en el celular se replica en la PC con debounce de 180 ms y nunca
+  avanza pasos por sí sola.
+- `Buscar` salta a la slide 4 y deja la búsqueda pausada en el paso 1.
+- `Paso →` y `← Paso` avanzan o retroceden una comparación por toque.
+- Los botones de código mueven las 4 partes del visor Java y muestran la misma
+  parte que la PC.
+
+---
+
+## Implementación en Java
+
+La slide 5 muestra un único viewport con el código de
+`ArbolBinarioBusquedaCatalogo.java` partido en 4 partes navegables:
+
+1. `Producto`: campos, constructor y `descripcion()`.
+2. `Nodo` y `Traza`: referencias y contador de comparaciones.
+3. `buscarPorCodigo`: comparación numérica.
+4. `buscarPorNombre`: comparación con `compareToIgnoreCase`.
+
+El código se muestra sin comentarios y con resaltado de sintaxis. La
+implementación equivalente usada como referencia vive en el material de la
+cátedra, en `../ayed3/02-ejemplosJava/13-Arboles/ArbolBinarioBusquedaCatalogo.java`
+(fuera de este repo).
+
+---
+
+## Estructura del repo
+
+| Archivo | Contenido |
+|---|---|
+| `index.html` | Las 6 diapositivas, el laboratorio y el modal QR. |
+| `styles.css` | Tema oscuro, layout, SVG y animaciones. |
+| `app.js` | Motor de búsqueda, generación de diagramas, Reveal y clienteWebSocket. |
+| `servidor-remoto/servidor.js` | Relay WebSocket + APIs `/api/qr`, `/api/qr-url` y `/api/connect-info`. |
+| `servidor-remoto/public/remote.html` | Interfaz móvil del control remoto. |
+| `servidor-remoto/iniciar.bat` | Arranque rápido en Windows. |
+| `RESUMEN.md` | Cheat sheet de una página con lo esencial. |
+
+## Detalles técnicos
+
+- Reveal.js 5.1.0, `1280 × 720`, transición `fade`, `slideNumber: 'c/t'`.
+- Paleta: fondo `#0B0F19`, cyan `#38BDF8` = código, esmeralda `#10B981` = nombre.
+- Tipografías: Plus Jakarta Sans + JetBrains Mono.
+- Animaciones: `rise`, `scan`, `floaty`, `linpulse`, `beamflow`, `labBoot`,
+  `labRow`, `logIn`, `resultIn`, `simshake`, `lab-pulse` y fragments.
+- `node_modules/` no se versiona; instalar con `npm install` dentro de
+  `servidor-remoto/`.
+
+## Créditos
+
+Basado en [PierSoco/Reveal-Remote](https://github.com/PierSoco/Reveal-Remote)
+para el protocolo, el D-Pad y el modal QR. Uso académico para AyED3.
