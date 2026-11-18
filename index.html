@@ -149,6 +149,10 @@
             <div class="diagram diagram--mini" id="d-mini-abb"></div>
           </article>
         </div>
+        <div class="explain-strip rise" style="--d:3">
+          <p><b class="hl-amber">Búsqueda lineal:</b> recorre la lista hasta dar con el código. Con un millón de productos, el peor caso son un millón de comparaciones.</p>
+          <p><b class="hl-emerald">Con el ABB:</b> cada comparación descarta una rama completa. El peor caso baja a unas <span class="mono">20</span> comparaciones.</p>
+        </div>
       </div>
     </section>
 
@@ -360,6 +364,10 @@ static class Traza {
             <div class="card-top"><span class="pill pill-amber mono">Degenerado</span></div>
             <div class="diagram diagram--risk" id="d-deg"></div>
           </article>
+        </div>
+        <div class="explain-strip rise" style="--d:3">
+          <p><b class="hl-emerald">Balanceado:</b> cada nivel divide el conjunto en dos y la altura crece como <span class="mono">log₂ n</span>. Con un millón de productos, unos <span class="mono">20</span> saltos.</p>
+          <p><b class="hl-amber">Degenerado:</b> si las claves llegan ordenadas, el árbol se estira en una lista y la búsqueda vuelve a ser <span class="mono">O(n)</span>. La forma importa tanto como el algoritmo.</p>
         </div>
       </div>
     </section>
